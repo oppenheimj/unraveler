@@ -13,13 +13,14 @@ type Node struct {
 	Path [][]float64
 	Fx   float64
 	Fy   float64
+	numEdges int
 	lock sync.RWMutex
 }
 
 // InitializeLocation does what it sounds like
 func (node *Node) InitializeLocation() {
-	node.X = rand.Float64() * 20
-	node.Y = rand.Float64() * 20
+	node.X = rand.Float64() * 50
+	node.Y = rand.Float64() * 50
 }
 
 func (node *Node) getCoords() []float64 {

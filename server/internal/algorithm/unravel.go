@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -11,7 +12,7 @@ import (
 func (graph *Graph) Unravel(wg *sync.WaitGroup, mt int, c *websocket.Conn) {
 	var avgChange float64 = 1
 	t := 0
-	blocks := calculateBlocks(1, len(graph.Nodes))
+	blocks := calculateBlocks(4, len(graph.Nodes))
 
 	for t < graph.Document.MaxIters && avgChange > graph.Document.MinError {
 		for i := 1; i < len(blocks); i++ {
@@ -22,7 +23,7 @@ func (graph *Graph) Unravel(wg *sync.WaitGroup, mt int, c *websocket.Conn) {
 
 		avgChange = graph.updateNodes()
 
-		if t % 1 == 0 {
+		if t % 10 == 0 {
 			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
 		}
 		
@@ -51,10 +52,10 @@ func (graph *Graph) calculateForces(s, f int, wg *sync.WaitGroup) {
 	}
 
 	for i := s; i < f; i++ {
-		ni := &graph.Nodes[i]
+		ni := graph.Nodes[i]
 
 		for j := i + 1; j < len(graph.Nodes); j++ {
-			nj := &graph.Nodes[j]
+			nj := graph.Nodes[j]
 
 			dij2 := ni.distanceSquared(nj)
 			FijR := graph.Document.Kr / dij2

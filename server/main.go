@@ -41,7 +41,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		runtime.GOMAXPROCS(64)
 		g := algorithm.Graph{}
-		g.InitCarbonChainGraph()
+		// g.InitCarbonChainGraph()
+		g.InitPreferentialAttachment()
 		g.Unravel(&sync.WaitGroup{}, mt, c)
 
 		// err = c.WriteMessage(mt, message)
