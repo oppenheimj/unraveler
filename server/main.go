@@ -1,17 +1,15 @@
 package main
 
 import (
-	"graph-drawing-microservices/microservices/unraveler/internal/algorithm"
-	"runtime"
-	"sync"
 	"flag"
+	"graph-drawing-microservices/microservices/unraveler/internal/algorithm"
 	"log"
 	"net/http"
+	"runtime"
+	"sync"
 
 	"github.com/gorilla/websocket"
-
 )
-
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
@@ -41,8 +39,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		runtime.GOMAXPROCS(64)
 		g := algorithm.Graph{}
-		// g.InitCarbonChainGraph()
-		g.InitPreferentialAttachment()
+		// g.InitCarbonChainGraph(20)
+		g.InitPreferentialAttachment(20)
 		g.Unravel(&sync.WaitGroup{}, mt, c)
 
 		// err = c.WriteMessage(mt, message)
