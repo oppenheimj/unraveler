@@ -28,10 +28,10 @@ func InitPreferentialAttachment(size int) *Graph {
 		minY: math.MaxFloat64,
 		maxY: -math.MaxFloat64,
 		params: params{
-			kr:       0.001,
+			kr:       1.0,
 			ka:       0.001,
-			kn:       8,
-			maxIters: 5000,
+			kn:       2048,
+			maxIters: 10000,
 			minError: 0.001,
 		},
 	}
@@ -77,10 +77,10 @@ func InitCarbonChain(size int) *Graph {
 		minY: math.MaxFloat64,
 		maxY: -math.MaxFloat64,
 		params: params{
-			kr:       0.001,
+			kr:       1,
 			ka:       0.001,
-			kn:       16,
-			maxIters: 5000,
+			kn:       2,
+			maxIters: 10000,
 			minError: 0.001,
 		},
 	}
@@ -191,17 +191,4 @@ func (graph *Graph) getEdges() string {
 func (graph *Graph) toString(additional string) string {
 	str := "{\"edges\":" + graph.getEdges() + ", \"nodes\":" + graph.getAllCoordsStr() + "," + additional + "}"
 	return str
-}
-
-func (graph *Graph) computeAttraction(n *node) {
-	theta := func(n1, n2 *node) float64 {
-		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
-	}
-	for _, neighbor := range graph.edges[n] {
-		FijA := graph.params.ka * n.distance(neighbor)
-		thetaij := theta(n, neighbor)
-
-		n.Fx += math.Cos(thetaij) * FijA
-		n.Fy += math.Sin(thetaij) * FijA
-	}
 }

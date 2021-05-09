@@ -17,8 +17,8 @@ type node struct {
 }
 
 func (n *node) InitializeLocation(area int) {
-	n.x = rand.Float64() * 1000
-	n.y = rand.Float64() * 1000
+	n.x = (rand.Float64() * 1000) - 500
+	n.y = (rand.Float64() * 1000) - 500
 }
 
 func (n *node) getCoords() []float64 {

@@ -39,8 +39,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("recv: %s", message)
 
-		// g := internal.InitPreferentialAttachment(100)
-		g := internal.InitCarbonChain(1000)
+		g := internal.InitPreferentialAttachment(20000)
+		// g := internal.InitCarbonChain(500)
 
 		g.Unravel(mt, c)
 	}

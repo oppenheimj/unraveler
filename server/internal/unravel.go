@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"sync"
+	"math"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,15 +14,15 @@ type nodeWorkerData struct {
 }
 
 func nodeWorker(id int, jobs <-chan nodeWorkerData, results chan<- int) {
-    for j := range jobs {
-        // fmt.Println("worker", id, "started  job", j)
+	for j := range jobs {
+		// fmt.Println("worker", id, "started  job", j)
 
-		j.q.computeRepulsion(j.n)
+		j.q.computeRepulsion(j.n, j.g.params.kr)
 		j.g.computeAttraction(j.n)
 
-        // fmt.Println("worker", id, "finished job", j)
-        results <- 0
-    }
+		// fmt.Println("worker", id, "finished job", j)
+		results <- 0
+	}
 }
 
 func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
@@ -34,7 +34,7 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 
 		numJobs := len(graph.nodes)
 		numWorkers := 8
-		
+
 		jobs := make(chan nodeWorkerData, numJobs)
 		results := make(chan int, numJobs)
 
@@ -42,21 +42,20 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 			go nodeWorker(w, jobs, results)
 		}
 
-		// need worker to do this for every node
 		for i := range graph.nodes {
 			jobs <- nodeWorkerData{
-				n : graph.nodes[i],
-				q : &q,
-				g : graph,
+				n: graph.nodes[i],
+				q: &q,
+				g: graph,
 			}
 		}
-	
+
 		close(jobs)
 
 		avgChange := graph.updateNodes()
 
-		if t%50 == 0 {
-			go (*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
+		if t%100 == 0 {
+			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
 		}
 
 		t++
@@ -64,36 +63,98 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 	}
 }
 
-func (graph *Graph) UnravelOld(wg *sync.WaitGroup, mt int, c *websocket.Conn) {
-	fmt.Println("Unraveleing")
-	var avgChange float64 = 1
-	t := 0
-	// blocks := calculateBlocks(4, len(graph.nodes))
+const theta = 0.96
 
-	for t < graph.params.maxIters && avgChange > graph.params.minError {
-		// construct quadtree
-		q := ConstructQuadtreeFromGraph(graph)
-		fmt.Println(q)
-
-		// use threadpool to compute forces
-		// update positions
-
-		// for i := 1; i < len(blocks); i++ {
-		// 	wg.Add(1)
-		// 	go graph.calculateForces(blocks[i-1], blocks[i], wg)
-		// }
-		// wg.Wait()
-
-		// avgChange = graph.updateNodes()
-
-		// if t%10 == 0 {
-		// 	(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
-		// }
-
-		// TODO: Use mutex for avgChange on graph
-
-		t++
+func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
+	root := treeNode{
+		x:      graph.minX,
+		y:      graph.minY,
+		width:  graph.maxX - graph.minX,
+		height: graph.maxY - graph.minY,
 	}
 
-	fmt.Println("Done!", avgChange, t)
+	for i, node := range graph.nodes {
+		p := point{x: node.x, y: node.y, node: graph.nodes[i]}
+
+		if root.contains(&p) {
+			root.addPoint(&p)
+		}
+	}
+
+	return root
+}
+
+func (t *treeNode) computeRepulsion(n *node, kr float64) {
+	if t.isLeaf() {
+		if t.hasPoint() && t.point.node != n {
+			t.addRepulsion(n, kr)
+		}
+	} else {
+		threshold := t.width / math.Sqrt(math.Pow(t.comX-n.x, 2)+math.Pow(t.comY-n.y, 2))
+		if threshold < theta {
+			t.addRepulsion(n, kr)
+		} else {
+			for _, child := range t.children {
+				child.computeRepulsion(n, kr)
+			}
+		}
+	}
+}
+
+var g = 1.0
+
+func (t *treeNode) addRepulsion(n *node, kr float64) {
+	thetaIJ := math.Atan2(t.comY-n.y, t.comX-n.x) + math.Pi
+	distSquared := math.Pow(t.comX-n.x, 2) + math.Pow(t.comY-n.y, 2)
+
+	force := (g * float64(n.numEdges) * t.mass * kr) / distSquared
+
+	n.Fx += force * math.Cos(thetaIJ)
+	n.Fy += force * math.Sin(thetaIJ)
+}
+
+func (graph *Graph) computeAttraction(n *node) {
+	theta := func(n1, n2 *node) float64 {
+		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
+	}
+	for _, neighbor := range graph.edges[n] {
+		FijA := graph.params.ka * math.Log2(float64(n.numEdges)*float64(neighbor.numEdges)) * n.distance(neighbor)
+		thetaij := theta(n, neighbor)
+
+		n.Fx += math.Cos(thetaij) * FijA
+		n.Fy += math.Sin(thetaij) * FijA
+	}
+}
+
+func (graph *Graph) updateNodes() float64 {
+	var totalChange float64
+
+	bounds := bounds{
+		minX: math.MaxFloat64,
+		maxX: -math.MaxFloat64,
+		minY: math.MaxFloat64,
+		maxY: -math.MaxFloat64,
+	}
+
+	for i := range graph.nodes {
+		dx := graph.params.kn * graph.nodes[i].Fx
+		dy := graph.params.kn * graph.nodes[i].Fy
+
+		graph.nodes[i].x += math.Copysign(1, dx) * math.Log2(math.Abs(dx)+1)
+		graph.nodes[i].y += math.Copysign(1, dy) * math.Log2(math.Abs(dy)+1)
+
+		graph.nodes[i].Fx = 0
+		graph.nodes[i].Fy = 0
+
+		totalChange += math.Sqrt(math.Pow(dx, 2) + math.Pow(dy, 2))
+
+		bounds.update(graph.nodes[i])
+	}
+
+	graph.minX = bounds.minX
+	graph.maxX = bounds.maxX
+	graph.minY = bounds.minY
+	graph.maxY = bounds.maxY
+
+	return totalChange / float64(len(graph.nodes))
 }

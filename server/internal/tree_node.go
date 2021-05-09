@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"math"
 )
 
 type treeNode struct {
@@ -16,94 +15,6 @@ type treeNode struct {
 	comY      float64
 	mass      float64
 	point     *point
-}
-
-const theta = 0.98
-
-func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
-	root := treeNode{
-		x:      graph.minX,
-		y:      graph.minY,
-		width:  graph.maxX - graph.minX,
-		height: graph.maxY - graph.minY,
-	}
-
-	for i, node := range graph.nodes {
-		p := point{x: node.x, y: node.y, node: graph.nodes[i]}
-
-		if root.contains(&p) {
-			root.addPoint(&p)
-		}
-	}
-
-	return root
-}
-
-func (t *treeNode) computeRepulsion(n *node) {
-	if t.isLeaf() {
-		if t.hasPoint() && t.point.node != n {
-			t.addRepulsion(n)
-		}
-	} else {
-		threshold := t.width / math.Sqrt(math.Pow(t.comX-n.x, 2)+math.Pow(t.comY-n.y, 2))
-		if threshold < theta {
-			t.addRepulsion(n)
-		} else {
-			for _, child := range t.children {
-				child.computeRepulsion(n)
-			}
-		}
-	}
-}
-
-var g = 1.0
-
-func (t *treeNode) addRepulsion(n *node) {
-	thetaIJ := math.Atan2(t.comY-n.y, t.comX-n.x) + math.Pi
-
-	dx := t.comX - n.x
-	dy := t.comY - n.y
-	distance := math.Sqrt(math.Pow(dx, 2) + math.Pow(dy, 2))
-	F := (g * 1 * t.mass * 1) / math.Pow(distance, 2) // 1 = node's mass, need to multiply by kr
-
-	// fmt.Println("Adding repulsion from treeNode", t.x, " ", t.y, "to", n.x, n.y, " force ", F*math.Cos(thetaIJ), " ", F*math.Sin(thetaIJ))
-	n.Fx += F * math.Cos(thetaIJ) // dx / distance
-	n.Fy += F * math.Sin(thetaIJ) // dy / distance
-}
-
-func (graph *Graph) updateNodes() float64 {
-	var totalChange float64
-
-	bounds := bounds{
-		minX: math.MaxFloat64,
-		maxX: -math.MaxFloat64,
-		minY: math.MaxFloat64,
-		maxY: -math.MaxFloat64,
-	}
-
-	for i := range graph.nodes {
-		dx := graph.params.kn * graph.nodes[i].Fx
-		dy := graph.params.kn * graph.nodes[i].Fy
-
-		// fmt.Println("node", i, "dx", dx, "dy", dy)
-
-		graph.nodes[i].x += dx
-		graph.nodes[i].y += dy
-
-		graph.nodes[i].Fx = 0
-		graph.nodes[i].Fy = 0
-
-		totalChange += math.Sqrt(math.Pow(dx, 2) + math.Pow(dy, 2))
-
-		bounds.update(graph.nodes[i])
-	}
-
-	graph.minX = bounds.minX
-	graph.maxX = bounds.maxX
-	graph.minY = bounds.minY
-	graph.maxY = bounds.maxY
-
-	return totalChange / float64(len(graph.nodes))
 }
 
 func (treeNode *treeNode) toString() string {
