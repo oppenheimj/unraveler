@@ -7,26 +7,59 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (graph *Graph) Unravel(wg *sync.WaitGroup, mt int, c *websocket.Conn) {
-	for t := 0; t < 10000; t++ {
-		fmt.Println("building quadtree")
-		q := ConstructQuadtreeFromGraph(graph)
-		fmt.Println("built quadtree")
+type nodeWorkerData struct {
+	n *node
+	q *treeNode
+	g *Graph
+}
 
-		for i := range graph.nodes {
-			q.computeRepulsion(graph.nodes[i])
-			graph.computeAttraction(graph.nodes[i])
+func nodeWorker(id int, jobs <-chan nodeWorkerData, results chan<- int) {
+    for j := range jobs {
+        // fmt.Println("worker", id, "started  job", j)
+
+		j.q.computeRepulsion(j.n)
+		j.g.computeAttraction(j.n)
+
+        // fmt.Println("worker", id, "finished job", j)
+        results <- 0
+    }
+}
+
+func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
+	t := 0
+	avgChange := 500.0
+
+	for t < graph.params.maxIters && avgChange > graph.params.minError {
+		q := ConstructQuadtreeFromGraph(graph)
+
+		numJobs := len(graph.nodes)
+		numWorkers := 8
+		
+		jobs := make(chan nodeWorkerData, numJobs)
+		results := make(chan int, numJobs)
+
+		for w := 1; w <= numWorkers; w++ {
+			go nodeWorker(w, jobs, results)
 		}
-		fmt.Println("computed forces")
+
+		// need worker to do this for every node
+		for i := range graph.nodes {
+			jobs <- nodeWorkerData{
+				n : graph.nodes[i],
+				q : &q,
+				g : graph,
+			}
+		}
+	
+		close(jobs)
 
 		avgChange := graph.updateNodes()
 
-		fmt.Println("updated nodes")
-		if t%10 == 0 {
-			fmt.Println("writing message")
-			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
-			fmt.Println("wrote message")
+		if t%50 == 0 {
+			go (*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
 		}
+
+		t++
 
 	}
 }

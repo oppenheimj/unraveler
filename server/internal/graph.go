@@ -30,8 +30,8 @@ func InitPreferentialAttachment(size int) *Graph {
 		params: params{
 			kr:       0.001,
 			ka:       0.001,
-			kn:       16,
-			maxIters: 1000,
+			kn:       8,
+			maxIters: 5000,
 			minError: 0.001,
 		},
 	}
@@ -80,7 +80,7 @@ func InitCarbonChain(size int) *Graph {
 			kr:       0.001,
 			ka:       0.001,
 			kn:       16,
-			maxIters: 1000,
+			maxIters: 5000,
 			minError: 0.001,
 		},
 	}

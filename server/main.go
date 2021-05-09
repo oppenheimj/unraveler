@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"runtime"
-	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -40,10 +39,10 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("recv: %s", message)
 
-		g := internal.InitPreferentialAttachment(5000)
-		// g := internal.InitCarbonChain(200)
+		// g := internal.InitPreferentialAttachment(100)
+		g := internal.InitCarbonChain(1000)
 
-		g.Unravel(&sync.WaitGroup{}, mt, c)
+		g.Unravel(mt, c)
 	}
 }
 
