@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"graph-drawing-microservices/microservices/unraveler/internal/algorithm"
+	"graph-drawing-microservices/microservices/unraveler/internal"
 	"log"
 	"net/http"
 	"runtime"
@@ -30,24 +30,20 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	for {
+		runtime.GOMAXPROCS(64)
+
 		mt, message, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
+
 		log.Printf("recv: %s", message)
 
-		runtime.GOMAXPROCS(64)
-		g := algorithm.Graph{}
-		// g.InitCarbonChainGraph(20)
-		g.InitPreferentialAttachment(20)
-		g.Unravel(&sync.WaitGroup{}, mt, c)
+		// g := internal.InitPreferentialAttachment(1000)
+		g := internal.InitCarbonChain(200)
 
-		// err = c.WriteMessage(mt, message)
-		// if err != nil {
-		// 	log.Println("write:", err)
-		// 	break
-		// }
+		g.Unravel(&sync.WaitGroup{}, mt, c)
 	}
 }
 

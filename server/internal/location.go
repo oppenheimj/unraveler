@@ -1,4 +1,4 @@
-package quadtree
+package internal
 
 type location struct {
 	x float64

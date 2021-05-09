@@ -21,7 +21,7 @@ class Canvas extends React.Component {
   }
 
   render() {
-    const dim = 400
+    const dim = 2000
     return (
       <svg width={dim} height={dim}>
         {this.state.nodes.map(

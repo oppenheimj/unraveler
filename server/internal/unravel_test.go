@@ -1,14 +1,14 @@
-package algorithm
+package internal
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 func TestCalculateBlocks(t *testing.T) {
 	tables := []struct {
-		numThreads int
-		numNodes int
+		numThreads     int
+		numNodes       int
 		expectedBlocks []int
 	}{
 		{8, 200, []int{0, 13, 27, 42, 59, 78, 100, 130, 200}},
