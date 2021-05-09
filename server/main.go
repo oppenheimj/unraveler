@@ -40,8 +40,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("recv: %s", message)
 
-		// g := internal.InitPreferentialAttachment(1000)
-		g := internal.InitCarbonChain(200)
+		g := internal.InitPreferentialAttachment(5000)
+		// g := internal.InitCarbonChain(200)
 
 		g.Unravel(&sync.WaitGroup{}, mt, c)
 	}

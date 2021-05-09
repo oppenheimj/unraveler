@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"math"
-	"sync"
 )
 
 type treeNode struct {
@@ -19,8 +18,7 @@ type treeNode struct {
 	point     *point
 }
 
-const theta = 0.9
-const KR = 1
+const theta = 0.98
 
 func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
 	root := treeNode{
@@ -66,54 +64,11 @@ func (t *treeNode) addRepulsion(n *node) {
 	dx := t.comX - n.x
 	dy := t.comY - n.y
 	distance := math.Sqrt(math.Pow(dx, 2) + math.Pow(dy, 2))
-	F := (g * 1 * t.mass * KR) / math.Pow(distance, 2) // 1 = node's mass
+	F := (g * 1 * t.mass * 1) / math.Pow(distance, 2) // 1 = node's mass, need to multiply by kr
 
 	// fmt.Println("Adding repulsion from treeNode", t.x, " ", t.y, "to", n.x, n.y, " force ", F*math.Cos(thetaIJ), " ", F*math.Sin(thetaIJ))
 	n.Fx += F * math.Cos(thetaIJ) // dx / distance
 	n.Fy += F * math.Sin(thetaIJ) // dy / distance
-}
-
-func (graph *Graph) calculateForces(s, f int, wg *sync.WaitGroup) {
-	theta := func(n1, n2 *node) float64 {
-		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
-	}
-
-	for i := s; i < f; i++ {
-		// ni is our node
-		// nj is treeNode
-		ni := graph.nodes[i]
-
-		for j := i + 1; j < len(graph.nodes); j++ {
-			nj := graph.nodes[j]
-
-			dij2 := ni.distanceSquared(nj)
-			FijR := graph.Document.Kr / dij2
-			thetaIJ := theta(ni, nj) + math.Pi
-			thetaJI := theta(nj, ni) + math.Pi
-
-			ni.lock.Lock()
-			ni.Fx += math.Cos(thetaIJ) * FijR
-			ni.Fy += math.Sin(thetaIJ) * FijR
-			ni.lock.Unlock()
-
-			nj.lock.Lock()
-			nj.Fx += math.Cos(thetaJI) * FijR
-			nj.Fy += math.Sin(thetaJI) * FijR
-			nj.lock.Unlock()
-		}
-
-		for _, neighbor := range graph.edges[ni] {
-			FijA := graph.Document.Ka * ni.distance(neighbor)
-			thetaij := theta(ni, neighbor)
-
-			ni.lock.Lock()
-			ni.Fx += math.Cos(thetaij) * FijA
-			ni.Fy += math.Sin(thetaij) * FijA
-			ni.lock.Unlock()
-		}
-	}
-
-	wg.Done()
 }
 
 func (graph *Graph) updateNodes() float64 {
@@ -127,8 +82,8 @@ func (graph *Graph) updateNodes() float64 {
 	}
 
 	for i := range graph.nodes {
-		dx := graph.Document.Kn * graph.nodes[i].Fx
-		dy := graph.Document.Kn * graph.nodes[i].Fy
+		dx := graph.params.kn * graph.nodes[i].Fx
+		dy := graph.params.kn * graph.nodes[i].Fy
 
 		// fmt.Println("node", i, "dx", dx, "dy", dy)
 

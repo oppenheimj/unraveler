@@ -9,10 +9,7 @@ import (
 	"time"
 )
 
-const KA = 0.0001
-
 type Graph struct {
-	Document   *GraphDocument
 	nodes      []*node
 	edges      map[*node][]*node
 	edgesStr   string
@@ -21,6 +18,7 @@ type Graph struct {
 	minY       float64
 	maxY       float64
 	boundsLock sync.Mutex
+	params     params
 }
 
 func InitPreferentialAttachment(size int) *Graph {
@@ -29,17 +27,16 @@ func InitPreferentialAttachment(size int) *Graph {
 		maxX: -math.MaxFloat64,
 		minY: math.MaxFloat64,
 		maxY: -math.MaxFloat64,
+		params: params{
+			kr:       0.001,
+			ka:       0.001,
+			kn:       16,
+			maxIters: 1000,
+			minError: 0.001,
+		},
 	}
 
 	rand.Seed(time.Now().UnixNano())
-
-	graph.Document = &GraphDocument{
-		Ka:       0.001,
-		Kr:       0.8,
-		Kn:       35,
-		MaxIters: 3000,
-		MinError: 1e-8,
-	}
 
 	graph.addNode(size)
 	graph.addNode(size)
@@ -74,14 +71,18 @@ func InitPreferentialAttachment(size int) *Graph {
 }
 
 func InitCarbonChain(size int) *Graph {
-	graph := Graph{}
-
-	graph.Document = &GraphDocument{
-		Ka:       0.001,
-		Kr:       0.8,
-		Kn:       50,
-		MaxIters: 2000,
-		MinError: 1e-8,
+	graph := Graph{
+		minX: math.MaxFloat64,
+		maxX: -math.MaxFloat64,
+		minY: math.MaxFloat64,
+		maxY: -math.MaxFloat64,
+		params: params{
+			kr:       0.001,
+			ka:       0.001,
+			kn:       16,
+			maxIters: 1000,
+			minError: 0.001,
+		},
 	}
 
 	for i := 0; i < size*3+2; i++ {
@@ -133,16 +134,6 @@ func (graph *Graph) addEdge(ni, nj *node) {
 	graph.edges[ni] = append(graph.edges[ni], nj)
 
 	ni.numEdges++
-}
-
-func (graph *Graph) getAllCoords() [][]float64 {
-	var allCoords [][]float64
-
-	for n := range graph.nodes {
-		allCoords = append(allCoords, graph.nodes[n].getCoords())
-	}
-
-	return allCoords
 }
 
 func (graph *Graph) getAllCoordsStr() string {
@@ -207,7 +198,7 @@ func (graph *Graph) computeAttraction(n *node) {
 		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
 	}
 	for _, neighbor := range graph.edges[n] {
-		FijA := KA * n.distance(neighbor) // Ka = 0.001
+		FijA := graph.params.ka * n.distance(neighbor)
 		thetaij := theta(n, neighbor)
 
 		n.Fx += math.Cos(thetaij) * FijA
