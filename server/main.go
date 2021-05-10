@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"graph-drawing-microservices/microservices/unraveler/internal"
 	"log"
@@ -13,6 +14,18 @@ import (
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
 var upgrader = websocket.Upgrader{} // use default options
+
+func unpackFrontendPayload(message []byte) internal.Params {
+	var params internal.Params
+
+	if err := json.Unmarshal(message, &params); err != nil {
+		panic(err)
+	}
+
+	// fmt.Printf("%+v\n", params)
+
+	return params
+}
 
 func echo(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -39,8 +52,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("recv: %s", message)
 
-		g := internal.InitPreferentialAttachment(20000)
-		// g := internal.InitCarbonChain(500)
+		g := internal.InitPreferentialAttachment(unpackFrontendPayload(message))
+		// g := internal.InitCarbonChain(200)
 
 		g.Unravel(mt, c)
 	}

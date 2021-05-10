@@ -17,7 +17,7 @@ func nodeWorker(id int, jobs <-chan nodeWorkerData, results chan<- int) {
 	for j := range jobs {
 		// fmt.Println("worker", id, "started  job", j)
 
-		j.q.computeRepulsion(j.n, j.g.params.kr)
+		j.q.computeRepulsion(j.n, j.g.params.Kr, j.g.params.Theta)
 		j.g.computeAttraction(j.n)
 
 		// fmt.Println("worker", id, "finished job", j)
@@ -29,16 +29,16 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 	t := 0
 	avgChange := 500.0
 
-	for t < graph.params.maxIters && avgChange > graph.params.minError {
+	for t < graph.params.MaxIters && avgChange > graph.params.MinError {
 		q := ConstructQuadtreeFromGraph(graph)
 
 		numJobs := len(graph.nodes)
-		numWorkers := 8
+		numWorkers := graph.params.NumThreads
 
 		jobs := make(chan nodeWorkerData, numJobs)
 		results := make(chan int, numJobs)
 
-		for w := 1; w <= numWorkers; w++ {
+		for w := 0; w < numWorkers; w++ {
 			go nodeWorker(w, jobs, results)
 		}
 
@@ -52,6 +52,10 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 
 		close(jobs)
 
+		for a := 1; a <= numJobs; a++ {
+			<-results
+		}
+
 		avgChange := graph.updateNodes()
 
 		if t%100 == 0 {
@@ -62,8 +66,6 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 
 	}
 }
-
-const theta = 0.96
 
 func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
 	root := treeNode{
@@ -84,7 +86,7 @@ func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
 	return root
 }
 
-func (t *treeNode) computeRepulsion(n *node, kr float64) {
+func (t *treeNode) computeRepulsion(n *node, kr float64, theta float64) {
 	if t.isLeaf() {
 		if t.hasPoint() && t.point.node != n {
 			t.addRepulsion(n, kr)
@@ -95,7 +97,7 @@ func (t *treeNode) computeRepulsion(n *node, kr float64) {
 			t.addRepulsion(n, kr)
 		} else {
 			for _, child := range t.children {
-				child.computeRepulsion(n, kr)
+				child.computeRepulsion(n, kr, theta)
 			}
 		}
 	}
@@ -118,7 +120,7 @@ func (graph *Graph) computeAttraction(n *node) {
 		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
 	}
 	for _, neighbor := range graph.edges[n] {
-		FijA := graph.params.ka * math.Log2(float64(n.numEdges)*float64(neighbor.numEdges)) * n.distance(neighbor)
+		FijA := graph.params.Ka * math.Log2(float64(n.numEdges)*float64(neighbor.numEdges)) * n.distance(neighbor)
 		thetaij := theta(n, neighbor)
 
 		n.Fx += math.Cos(thetaij) * FijA
@@ -137,8 +139,8 @@ func (graph *Graph) updateNodes() float64 {
 	}
 
 	for i := range graph.nodes {
-		dx := graph.params.kn * graph.nodes[i].Fx
-		dy := graph.params.kn * graph.nodes[i].Fy
+		dx := graph.params.Kn * graph.nodes[i].Fx
+		dy := graph.params.Kn * graph.nodes[i].Fy
 
 		graph.nodes[i].x += math.Copysign(1, dx) * math.Log2(math.Abs(dx)+1)
 		graph.nodes[i].y += math.Copysign(1, dy) * math.Log2(math.Abs(dy)+1)

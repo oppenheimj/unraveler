@@ -18,29 +18,23 @@ type Graph struct {
 	minY       float64
 	maxY       float64
 	boundsLock sync.Mutex
-	params     params
+	params     Params
 }
 
-func InitPreferentialAttachment(size int) *Graph {
+func InitPreferentialAttachment(params Params) *Graph {
 	graph := Graph{
-		minX: math.MaxFloat64,
-		maxX: -math.MaxFloat64,
-		minY: math.MaxFloat64,
-		maxY: -math.MaxFloat64,
-		params: params{
-			kr:       1.0,
-			ka:       0.001,
-			kn:       2048,
-			maxIters: 10000,
-			minError: 0.001,
-		},
+		minX:   math.MaxFloat64,
+		maxX:   -math.MaxFloat64,
+		minY:   math.MaxFloat64,
+		maxY:   -math.MaxFloat64,
+		params: params,
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	graph.addNode(size)
-	graph.addNode(size)
-	graph.addNode(size)
+	graph.addNode(params.N)
+	graph.addNode(params.N)
+	graph.addNode(params.N)
 
 	graph.addEdge(graph.nodes[1], graph.nodes[0])
 	graph.addEdge(graph.nodes[0], graph.nodes[1])
@@ -51,7 +45,7 @@ func InitPreferentialAttachment(size int) *Graph {
 	var sum int
 	var toAttach int
 
-	for i := 3; i < size; i++ {
+	for i := 3; i < params.N; i++ {
 		sum = 0
 		toAttach = rand.Intn(2*(len(graph.nodes)-1)) + 1
 
@@ -59,7 +53,7 @@ func InitPreferentialAttachment(size int) *Graph {
 			sum += graph.nodes[n].numEdges
 
 			if sum >= int(toAttach) {
-				graph.addNode(size)
+				graph.addNode(params.N)
 				graph.addEdge(graph.nodes[len(graph.nodes)-1], graph.nodes[n])
 				graph.addEdge(graph.nodes[n], graph.nodes[len(graph.nodes)-1])
 				break
@@ -76,12 +70,12 @@ func InitCarbonChain(size int) *Graph {
 		maxX: -math.MaxFloat64,
 		minY: math.MaxFloat64,
 		maxY: -math.MaxFloat64,
-		params: params{
-			kr:       1,
-			ka:       0.001,
-			kn:       2,
-			maxIters: 10000,
-			minError: 0.001,
+		params: Params{
+			Kr:       1,
+			Ka:       0.001,
+			Kn:       2,
+			MaxIters: 10000,
+			MinError: 0.001,
 		},
 	}
 
