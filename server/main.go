@@ -1,21 +1,31 @@
 package main
 
 import (
-	"graph-drawing-microservices/microservices/unraveler/internal/algorithm"
-	"runtime"
-	"sync"
+	"encoding/json"
 	"flag"
+	"graph-drawing-microservices/microservices/unraveler/internal"
 	"log"
 	"net/http"
+	"runtime"
 
 	"github.com/gorilla/websocket"
-
 )
-
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
 var upgrader = websocket.Upgrader{} // use default options
+
+func unpackFrontendPayload(message []byte) internal.Params {
+	var params internal.Params
+
+	if err := json.Unmarshal(message, &params); err != nil {
+		panic(err)
+	}
+
+	// fmt.Printf("%+v\n", params)
+
+	return params
+}
 
 func echo(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -32,24 +42,20 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	for {
+		runtime.GOMAXPROCS(64)
+
 		mt, message, err := c.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
 		}
+
 		log.Printf("recv: %s", message)
 
-		runtime.GOMAXPROCS(64)
-		g := algorithm.Graph{}
-		// g.InitCarbonChainGraph()
-		g.InitPreferentialAttachment()
-		g.Unravel(&sync.WaitGroup{}, mt, c)
+		g := internal.InitPreferentialAttachment(unpackFrontendPayload(message))
+		// g := internal.InitCarbonChain(200)
 
-		// err = c.WriteMessage(mt, message)
-		// if err != nil {
-		// 	log.Println("write:", err)
-		// 	break
-		// }
+		g.Unravel(mt, c)
 	}
 }
 
