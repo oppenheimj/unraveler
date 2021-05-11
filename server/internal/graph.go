@@ -183,6 +183,5 @@ func (graph *Graph) getEdges() string {
 }
 
 func (graph *Graph) toString(additional string) string {
-	str := "{\"edges\":" + graph.getEdges() + ", \"nodes\":" + graph.getAllCoordsStr() + "," + additional + "}"
-	return str
+	return "{\"edges\":" + graph.getEdges() + ", \"nodes\":" + graph.getAllCoordsStr() + "," + additional + "}"
 }

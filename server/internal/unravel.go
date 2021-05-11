@@ -56,10 +56,10 @@ func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
 			<-results
 		}
 
-		avgChange := graph.updateNodes()
+		avgChange = graph.updateNodes()
 
-		if t%100 == 0 {
-			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange))))
+		if t%graph.params.UpdateEvery == 0 {
+			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange, ", \"minX\":", graph.minX, ", \"maxX\":", graph.maxX, ", \"minY\":", graph.minY, ", \"maxY\":", graph.maxY))))
 		}
 
 		t++
@@ -109,7 +109,7 @@ func (t *treeNode) addRepulsion(n *node, kr float64) {
 	thetaIJ := math.Atan2(t.comY-n.y, t.comX-n.x) + math.Pi
 	distSquared := math.Pow(t.comX-n.x, 2) + math.Pow(t.comY-n.y, 2)
 
-	force := (g * float64(n.numEdges) * t.mass * kr) / distSquared
+	force := (g * 1 * t.mass * kr) / distSquared // (g * float64(n.numEdges) * t.mass * kr) / distSquared
 
 	n.Fx += force * math.Cos(thetaIJ)
 	n.Fy += force * math.Sin(thetaIJ)
@@ -120,7 +120,7 @@ func (graph *Graph) computeAttraction(n *node) {
 		return math.Atan2(n2.y-n1.y, n2.x-n1.x)
 	}
 	for _, neighbor := range graph.edges[n] {
-		FijA := graph.params.Ka * math.Log2(float64(n.numEdges)*float64(neighbor.numEdges)) * n.distance(neighbor)
+		FijA := graph.params.Ka * n.distance(neighbor) //* math.Log2(float64(n.numEdges)*float64(neighbor.numEdges))
 		thetaij := theta(n, neighbor)
 
 		n.Fx += math.Cos(thetaij) * FijA

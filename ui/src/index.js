@@ -5,11 +5,24 @@ import './index.css';
 class Canvas extends React.Component {
   constructor(props) {
     super(props)
-    this.state = { nodes: this.props.nodes, edges: this.props.edges }
+    this.state = {
+      nodes: this.props.nodes,
+      edges: this.props.edges,
+      minX: this.props.minX,
+      maxX: this.props.maxX,
+      minY: this.props.minY,
+      maxY: this.props.maxY
+    }
   }
 
   componentWillReceiveProps(nextProps) {
-    this.setState({ nodes: nextProps.nodes, edges: nextProps.edges })
+    this.setState({
+      nodes: nextProps.nodes,
+      edges: nextProps.edges,
+      minX: nextProps.minX,
+      maxX: nextProps.maxX,
+      minY: nextProps.minY,
+      maxY: nextProps.maxY})
   }
 
   edgesToArray() {
@@ -21,28 +34,37 @@ class Canvas extends React.Component {
   }
 
   render() {
-    const dim = 2000
+    
+    const originalWidth = this.state.maxX - this.state.minX
+    const originalHeight = this.state.maxY - this.state.minY
+
+    const dim = Math.max(originalWidth, originalHeight)
+
+    const pointSize = 1 / Math.log10(this.state.nodes.length)
+
+    const dim2Pct = (d, m) => `${(d - m)/dim * 100}%`
+
     return (
-      <svg width={dim} height={dim}>
+        <svg viewBox="0 0 100 100">
         {this.state.nodes.map(
-          node => <circle cx={node[0]+dim/2} cy={node[1]+dim/2} r="3" stroke="black" strokeWidth="4" fill="black" />
+          node => <circle cx={dim2Pct(node[0], this.state.minX)} cy={dim2Pct(node[1], this.state.minY)} r={pointSize} stroke="black" strokeWidth={0} fill="red" />
         )}
         {this.edgesToArray().map(([from, to]) =>
           <line
-            x1={this.state.nodes[from][0]+dim/2}
-            y1={this.state.nodes[from][1]+dim/2}
-            x2={this.state.nodes[to][0]+dim/2}
-            y2={this.state.nodes[to][1]+dim/2}
+            x1={dim2Pct(this.state.nodes[from][0], this.state.minX)}
+            y1={dim2Pct(this.state.nodes[from][1], this.state.minY)}
+            x2={dim2Pct(this.state.nodes[to][0], this.state.minX)}
+            y2={dim2Pct(this.state.nodes[to][1], this.state.minY)}
             stroke="black"
-            strokeWidth={1}
+            strokeWidth={pointSize/4}
           />
         )}
-        {this.state.nodes.filter((node, i) => i % 3 === 0 && i !== this.state.nodes.length-2)
+        {/* {this.state.nodes.filter((node, i) => i % 3 === 0 && i !== this.state.nodes.length-2)
         .map(node => <text fontSize="8" x={node[0]+dim/2-3} y={node[1]+dim/2+3} fill="red">C</text>
         )}
         {this.state.nodes.filter((node, i) => i % 3 !== 0 || i === this.state.nodes.length-2)
         .map(node => <text fontSize="8" x={node[0]+dim/2-3} y={node[1]+dim/2+3} fill="yellow">H</text>
-        )}
+        )} */}
       </svg>
     )
   }
@@ -52,14 +74,15 @@ class ParamForm extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      n: 100,
-      kr: 100,
-      ka: 1.0,
-      kn: 1.0,
+      n: 32,
+      kr: 1000,
+      ka: 1,
+      kn: 1,
       maxIters: 1000,
-      minError: 0.001,
-      theta: 0.8,
-      numThreads: 8
+      updateEvery: 10,
+      minError: 0.0001,
+      theta: 0,
+      numThreads: 1
     };
 
     this.update = this.props.update.bind(this)
@@ -91,35 +114,39 @@ class ParamForm extends React.Component {
         <label>
           n:
           <input type="text" name='n' value={this.state.n} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           ka:
           <input type="text" name='ka' value={this.state.ka} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           kr:
           <input type="text" name='kr' value={this.state.kr} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           kn:
           <input type="text" name='kn' value={this.state.kn} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           maxIters:
           <input type="text" name='maxIters' value={this.state.maxIters} onChange={this.handleChange} />
-        </label>
+        </label><br />
+        <label>
+          updateEvery:
+          <input type="text" name='updateEvery' value={this.state.updateEvery} onChange={this.handleChange} />
+        </label><br />
         <label>
           minError:
           <input type="text" name='minError' value={this.state.minError} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           theta:
           <input type="text" name='theta' value={this.state.theta} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <label>
           numThreads:
           <input type="text" name='numThreads' value={this.state.numThreads} onChange={this.handleChange} />
-        </label>
+        </label><br />
         <input type="submit" value="Submit" />
       </form>
     );
@@ -129,7 +156,7 @@ class ParamForm extends React.Component {
 class App extends React.Component {
   constructor(props) {
     super(props)
-    this.state = { nodes: [], edges: [], i: 0, err: 0 }
+    this.state = { nodes: [], edges: [], i: 0, err: 0, minX: 0, maxX: 0, minY: 0, maxY: 0 }
 
     
     this.initWebsocket = this.initWebsocket.bind(this)
@@ -144,23 +171,26 @@ class App extends React.Component {
 
     // Listen for messages
     this.socket.addEventListener('message', event => {
-      const data = JSON.parse(event.data);
-      this.setState(data);
+      this.setState(JSON.parse(event.data))
     });
   }
 
   update(e) {
-    console.log('!!!', e)
     this.socket.send(e)
   }
 
   render() {
+    const originalWidth = this.state.maxX - this.state.minX
+    const originalHeight = this.state.maxY - this.state.minY
+    const dim = Math.max(originalWidth, originalHeight)
+
     return (
       <div>
+
+        
         <ParamForm update={this.update}/>
-        {/* <button onClick={this.update}>Draw graph</button> */}
-        <p>i: {this.state.i}, err: {this.state.err}</p>
-        <Canvas nodes={this.state.nodes} edges={this.state.edges} />
+        <p>width: {dim}, i: {this.state.i}, err: {this.state.err}</p>
+        <Canvas nodes={this.state.nodes} edges={this.state.edges} minX={this.state.minX} maxX={this.state.maxX} minY={this.state.minY} maxY={this.state.maxY} />
       </div>
     )
   }
