@@ -34,7 +34,6 @@ class Canvas extends React.Component {
   }
 
   render() {
-    
     const originalWidth = this.state.maxX - this.state.minX
     const originalHeight = this.state.maxY - this.state.minY
 
@@ -47,7 +46,7 @@ class Canvas extends React.Component {
     return (
         <svg viewBox="0 0 100 100">
         {this.state.nodes.map(
-          node => <circle cx={dim2Pct(node[0], this.state.minX)} cy={dim2Pct(node[1], this.state.minY)} r={pointSize} stroke="black" strokeWidth={0} fill="red" />
+          node => <circle cx={dim2Pct(node[0], this.state.minX)} cy={dim2Pct(node[1], this.state.minY)} r={pointSize} stroke="black" strokeWidth={0} fill="black" />
         )}
         {this.edgesToArray().map(([from, to]) =>
           <line
@@ -56,7 +55,7 @@ class Canvas extends React.Component {
             x2={dim2Pct(this.state.nodes[to][0], this.state.minX)}
             y2={dim2Pct(this.state.nodes[to][1], this.state.minY)}
             stroke="black"
-            strokeWidth={pointSize/4}
+            strokeWidth={pointSize/6}
           />
         )}
         {/* {this.state.nodes.filter((node, i) => i % 3 === 0 && i !== this.state.nodes.length-2)
@@ -185,11 +184,10 @@ class App extends React.Component {
     const dim = Math.max(originalWidth, originalHeight)
 
     return (
+      // width: {dim},
       <div>
-
-        
         <ParamForm update={this.update}/>
-        <p>width: {dim}, i: {this.state.i}, err: {this.state.err}</p>
+        <p>i: {this.state.i}, err: {this.state.err}</p>
         <Canvas nodes={this.state.nodes} edges={this.state.edges} minX={this.state.minX} maxX={this.state.maxX} minY={this.state.minY} maxY={this.state.maxY} />
       </div>
     )

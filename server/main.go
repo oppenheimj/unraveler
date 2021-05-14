@@ -33,18 +33,18 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
-	c, err := upgrader.Upgrade(w, r, nil)
+	connection, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
 
-	defer c.Close()
+	defer connection.Close()
 
 	for {
 		runtime.GOMAXPROCS(64)
 
-		mt, message, err := c.ReadMessage()
+		messageType, message, err := connection.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
@@ -55,7 +55,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 		g := internal.InitPreferentialAttachment(unpackFrontendPayload(message))
 		// g := internal.InitCarbonChain(200)
 
-		g.Unravel(mt, c)
+		g.Unravel(messageType, connection)
 	}
 }
 

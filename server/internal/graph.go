@@ -19,6 +19,7 @@ type Graph struct {
 	maxY       float64
 	boundsLock sync.Mutex
 	params     Params
+	avgChange  float64
 }
 
 func InitPreferentialAttachment(params Params) *Graph {
