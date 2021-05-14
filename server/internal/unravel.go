@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -11,6 +12,61 @@ type nodeWorkerData struct {
 	n *node
 	q *treeNode
 	g *Graph
+}
+
+func (graph *Graph) Unravel(messageType int, connection *websocket.Conn) {
+	t := 0
+	avgChange := math.MaxFloat64
+
+	for t < graph.params.MaxIters && avgChange > graph.params.MinError {
+		if t%graph.params.UpdateEvery == 0 {
+			waitGroup := &sync.WaitGroup{}
+			waitGroup.Add(2)
+
+			go graph.tick(waitGroup)
+			go graph.updateUI(t, messageType, connection, waitGroup)
+
+			waitGroup.Wait()
+		} else {
+			graph.tick(nil)
+		}
+
+		t++
+	}
+}
+
+func (graph *Graph) tick(waitGroup *sync.WaitGroup) {
+	q := ConstructQuadtreeFromGraph(graph)
+
+	numJobs := len(graph.nodes)
+	numWorkers := graph.params.NumThreads
+
+	jobs := make(chan nodeWorkerData, numJobs)
+	results := make(chan int, numJobs)
+
+	for w := 0; w < numWorkers; w++ {
+		go nodeWorker(w, jobs, results)
+	}
+
+	for i := range graph.nodes {
+		jobs <- nodeWorkerData{
+			n: graph.nodes[i],
+			q: &q,
+			g: graph,
+		}
+	}
+
+	close(jobs)
+
+	for a := 1; a <= numJobs; a++ {
+		<-results
+	}
+
+	graph.updateNodes()
+
+	if waitGroup != nil {
+		waitGroup.Done()
+	}
 }
 
 func nodeWorker(id int, jobs <-chan nodeWorkerData, results chan<- int) {
@@ -25,46 +81,10 @@ func nodeWorker(id int, jobs <-chan nodeWorkerData, results chan<- int) {
 	}
 }
 
-func (graph *Graph) Unravel(mt int, c *websocket.Conn) {
-	t := 0
-	avgChange := 500.0
-
-	for t < graph.params.MaxIters && avgChange > graph.params.MinError {
-		q := ConstructQuadtreeFromGraph(graph)
-
-		numJobs := len(graph.nodes)
-		numWorkers := graph.params.NumThreads
-
-		jobs := make(chan nodeWorkerData, numJobs)
-		results := make(chan int, numJobs)
-
-		for w := 0; w < numWorkers; w++ {
-			go nodeWorker(w, jobs, results)
-		}
-
-		for i := range graph.nodes {
-			jobs <- nodeWorkerData{
-				n: graph.nodes[i],
-				q: &q,
-				g: graph,
-			}
-		}
-
-		close(jobs)
-
-		for a := 1; a <= numJobs; a++ {
-			<-results
-		}
-
-		avgChange = graph.updateNodes()
-
-		if t%graph.params.UpdateEvery == 0 {
-			(*c).WriteMessage(mt, []byte(graph.toString(fmt.Sprint("\"i\":", t, ", \"err\":", avgChange, ", \"minX\":", graph.minX, ", \"maxX\":", graph.maxX, ", \"minY\":", graph.minY, ", \"maxY\":", graph.maxY))))
-		}
-
-		t++
-
-	}
+func (graph *Graph) updateUI(tick int, messageType int, connection *websocket.Conn, waitGroup *sync.WaitGroup) {
+	extraFields := fmt.Sprint("\"i\":", tick, ", \"err\":", graph.avgChange, ", \"minX\":", graph.minX, ", \"maxX\":", graph.maxX, ", \"minY\":", graph.minY, ", \"maxY\":", graph.maxY)
+	(*connection).WriteMessage(messageType, []byte(graph.toString(extraFields)))
+	waitGroup.Done()
 }
 
 func ConstructQuadtreeFromGraph(graph *Graph) treeNode {
@@ -128,7 +148,7 @@ func (graph *Graph) computeAttraction(n *node) {
 	}
 }
 
-func (graph *Graph) updateNodes() float64 {
+func (graph *Graph) updateNodes() {
 	var totalChange float64
 
 	bounds := bounds{
@@ -158,5 +178,5 @@ func (graph *Graph) updateNodes() float64 {
 	graph.minY = bounds.minY
 	graph.maxY = bounds.maxY
 
-	return totalChange / float64(len(graph.nodes))
+	graph.avgChange = totalChange / float64(len(graph.nodes))
 }
